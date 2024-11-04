@@ -1,98 +1,105 @@
-from PyQt6.QtWidgets import QWidget, QPushButton, QTextBrowser, QLabel, QGridLayout, QRadioButton, QCheckBox, QLineEdit, \
-    QTimeEdit, QLCDNumber
-from PyQt6.QtCore import Qt, pyqtSlot, QDateTime, QTimer
-import sys
+from PyQt6.QtCore import QTime, pyqtSlot, QTimer
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import QWidget, QGridLayout, QLabel, QTextBrowser, QLineEdit, QPushButton, QTimeEdit, QLCDNumber, \
+    QRadioButton
 
 
 class CentralWidget(QWidget):
     def __init__(self, parent=None):
         super(CentralWidget, self).__init__(parent)
 
-        layout = QGridLayout()
+        self.__timer = QTimer()
+        self.__timer.timeout.connect(self.decrease_sec)
 
-        # First Row
-        self.blind_in_euro = QLabel("Blind in €")
-        layout.addWidget(self.blind_in_euro, 0, 0)
+        self.__time_left = QTime()
 
-        self.start_amount_input = QLineEdit()
-        self.start_amount_input.setInputMask("9999")
-        layout.addWidget(self.start_amount_input, 0, 1)
+        self.__line_edit_blind_euro = QLineEdit("50.00")
 
-        self.start_stop = QPushButton("Start/Stop")
-        self.start_stop.pressed.connect(self.start_timer)
-        layout.addWidget(self.start_stop, 0, 2)
+        self.__time_edit = QTimeEdit(QTime(0, 0, 5))
+        self.__time_edit.setDisplayFormat("hh:mm:ss")
 
-        # Second Row
-        self.raise_time = QLabel("Raise-Time")
-        layout.addWidget(self.raise_time, 1, 0)
+        self.__line_edit_raise_percent = QLineEdit("15.3")
 
-        self.time_settings = QTimeEdit()
-        self.time_settings.setDisplayFormat("mm:ss")
-        layout.addWidget(self.time_settings, 1, 1)
+        self.__line_edit_raise_euro = QLineEdit("10.00")
 
-        self.lcd_timer = QLCDNumber()
-        layout.addWidget(self.lcd_timer, 1, 2)
+        self.__push_button = QPushButton("Start")
+        self.__push_button.released.connect(self.timer_start)
 
-        # Third Row
-        self.raise_in_percent = QLabel("Raise in %")
-        layout.addWidget(self.raise_in_percent, 2, 0)
+        self.__lcd_number = QLCDNumber()
+        self.__lcd_number.display(self.__time_edit.time().toString("hh:mm:ss"))
 
-        self.in_percent = QLineEdit()
-        self.in_percent.setInputMask("9999")
-        layout.addWidget(self.in_percent, 2, 1)
+        self.__radio_button_percent = QRadioButton("Raise in %")
 
-        self.raise_in = QLabel("Raise in...")
-        layout.addWidget(self.raise_in, 2, 2)
+        self.__radio_button_euro = QRadioButton("Raise in €")
 
-        # Fourth Row
-        self.raise_in_euro = QLabel("Raise in €")
-        layout.addWidget(self.raise_in_euro, 3, 0)
+        self.__text_browser = QTextBrowser()
 
-        self.in_euro = QLineEdit()
-        self.in_euro.setInputMask("9999")
-        layout.addWidget(self.in_euro, 3, 1)
+        grid_layout = QGridLayout()
 
-        self.percent = QRadioButton("%")
-        self.percent.clicked.connect(self.choose_percent)
-        layout.addWidget(self.percent, 3, 2, Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel("Blind in €"), 1, 1)
+        grid_layout.addWidget(QLabel("Raise Time"), 2, 1)
+        grid_layout.addWidget(self.__radio_button_percent, 3, 1)
+        grid_layout.addWidget(self.__radio_button_euro, 4, 1)
 
-        self.euro = QRadioButton("€")
-        self.euro.clicked.connect(self.choose_euro)
-        layout.addWidget(self.euro, 3, 3)
+        grid_layout.addWidget(self.__line_edit_blind_euro, 1, 2)
+        grid_layout.addWidget(self.__time_edit, 2, 2)
+        grid_layout.addWidget(self.__line_edit_raise_percent, 3, 2)
+        grid_layout.addWidget(self.__line_edit_raise_euro, 4, 2)
 
-        # QTextBrowser für Ausgabe
-        self.text_browser = QTextBrowser()
-        layout.addWidget(self.text_browser, 4, 0, 2, 4)
+        grid_layout.addWidget(self.__push_button, 1, 3)
+        grid_layout.addWidget(self.__lcd_number, 2, 3)
+        grid_layout.addWidget(QLabel("chip.jpg"), 3, 3, 1, 2)
 
-        self.setLayout(layout)
+        grid_layout.addWidget(self.__text_browser, 5, 1, 1, 4)
 
-        # Timer für Raise
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_timer)
-        self.time_left = 0
+        self.setLayout(grid_layout)
 
+        self.__text_browser.append("Ready")
 
     @pyqtSlot()
-    def start_timer(self):
-        raise_time = self.time_settings.time()
-        self.time_left = raise_time.minute() * 60 + raise_time.second()
-        self.lcd_timer.display(self.time_left)
-        self.timer.start(1000)
+    def timer_start(self):
+        self.__push_button.setText("Stopp")
+        self.__push_button.released.disconnect(self.timer_start)
+        self.__push_button.released.connect(self.timer_stop)
 
-    def update_timer(self):
-        if self.time_left > 0:
-            self.time_left -= 1
-            self.lcd_timer.display(self.time_left)
-        else:
-            self.timer.stop()
-            self.calculate_raise()
+        self.__line_edit_blind_euro.setDisabled(True)
+        self.__time_edit.setDisabled(True)
+        self.__line_edit_raise_percent.setDisabled(True)
+        self.__line_edit_raise_euro.setDisabled(True)
 
+        self.__radio_button_euro.setDisabled(True)
+        self.__radio_button_percent.setDisabled(True)
 
-    @pyqtSlot()
-    def choose_percent(self):
-        print("Raise in %")
+        self.__time_left = self.__time_edit.time()
+
+        self.__timer.start(1 * 1000)
 
     @pyqtSlot()
-    def choose_euro(self):
-        print("Raise in €")
+    def timer_stop(self):
+        self.__push_button.setText("Start")
+        self.__push_button.released.disconnect(self.timer_stop)
+        self.__push_button.released.connect(self.timer_start)
 
+        self.__line_edit_blind_euro.setEnabled(True)
+        self.__time_edit.setEnabled(True)
+        self.__line_edit_raise_percent.setEnabled(True)
+        self.__line_edit_raise_euro.setEnabled(True)
+
+        self.__radio_button_euro.setEnabled(True)
+        self.__radio_button_percent.setEnabled(True)
+
+        self.__lcd_number.display(self.__time_edit.time().toString("hh:mm:ss"))
+
+        self.__timer.stop()
+
+    @pyqtSlot()
+    def decrease_sec(self):
+        if self.__time_left == QTime(0, 0, 0):
+            self.__time_left = self.__time_edit.time()
+
+            self.__text_browser.append("Blind raised.")
+
+        self.__time_left = self.__time_left.addSecs(-1)
+        print(self.__time_left)
+
+        self.__lcd_number.display(self.__time_left.toString("hh:mm:ss"))
